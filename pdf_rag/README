@@ -16,7 +16,7 @@ A streamlit-based application that allows users to upload PDF documents and ask 
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/pdf-qa-system.git
+git clone https://github.com/tanch0/AI-practice.git
 cd pdf-qa-system
 ```
 
