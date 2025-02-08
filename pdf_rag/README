@@ -1,0 +1,75 @@
+# PDF Question-Answering System
+
+A streamlit-based application that allows users to upload PDF documents and ask questions about their content using OpenAI's language models.
+
+![PDF QA Architecture](https://i.imgur.com/YOUR_IMAGE_URL.png)
+
+## 🌟 Features
+
+- PDF document upload and text extraction
+- Intelligent text chunking for better processing
+- Semantic search using FAISS vector store
+- OpenAI-powered question answering
+- User-friendly Streamlit interface
+
+## 🚀 Quick Start
+
+1. Clone the repository
+```bash
+git clone https://github.com/yourusername/pdf-qa-system.git
+cd pdf-qa-system
+```
+
+2. Create and activate virtual environment
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+4. Set up environment variables
+```bash
+cp .env.example .env
+# Edit .env and add your OpenAI API key
+```
+
+5. Run the application
+```bash
+streamlit run app.py
+```
+
+## 💻 System Requirements
+
+- Python 3.8 or higher
+- OpenAI API key
+- 4GB RAM minimum
+- Internet connection
+
+## 🛠️ How It Works
+
+1. **PDF Processing**: Upload your PDF document through the Streamlit interface
+2. **Text Extraction**: The system extracts text content from the PDF
+3. **Chunking**: Text is split into manageable chunks for processing
+4. **Embeddings**: OpenAI creates embeddings for each text chunk
+5. **Knowledge Base**: FAISS vector store indexes the embeddings
+6. **Question Answering**: Ask questions and get AI-powered answers
+
+## 📦 Dependencies
+
+- streamlit
+- langchain
+- openai
+- PyPDF2
+- python-dotenv
+- faiss-cpu
+
+## 🔐 Environment Variables
+
+Create a `.env` file with:
+```
+OPENAI_API_KEY=your_api_key_here
+```
