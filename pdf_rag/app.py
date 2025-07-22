@@ -6,7 +6,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings, OpenAI
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_community.vectorstores import FAISS
 from langchain.chains.question_answering import load_qa_chain
 from langchain.schema import Document
@@ -16,22 +16,23 @@ from langchain.schema import Document
 class AppConfig:
     """Application configuration."""
 
-    page_title: str = "Ask your PDF"
+    page_title: str = "PDF Chat Assistant"
     chunk_size: int = 1000
     chunk_overlap: int = 200
-    model_name: str = "text-embedding-3-large"
+    model_name: str = "gemini-1.5-flash"
+    embedding_model: str = "models/embedding-001"
 
 
 @st.cache_resource
-def get_openai_embeddings() -> OpenAIEmbeddings:
-    """Initialize and cache OpenAI embeddings."""
-    return OpenAIEmbeddings(model=AppConfig.model_name)
+def get_gemini_embeddings() -> GoogleGenerativeAIEmbeddings:
+    """Initialize and cache Gemini embeddings."""
+    return GoogleGenerativeAIEmbeddings(model=AppConfig.embedding_model)
 
 
 @st.cache_resource
 def get_qa_chain():
     """Initialize and cache QA chain."""
-    return load_qa_chain(OpenAI(), chain_type="stuff")
+    return load_qa_chain(ChatGoogleGenerativeAI(model=AppConfig.model_name), chain_type="stuff")
 
 
 def extract_text_from_pdf(pdf_file) -> str:
@@ -58,7 +59,7 @@ def create_text_chunks(text: str) -> List[str]:
 def create_knowledge_base(chunks: List[str]) -> Optional[FAISS]:
     """Create FAISS knowledge base from text chunks."""
     try:
-        embeddings = get_openai_embeddings()
+        embeddings = get_gemini_embeddings()
         return FAISS.from_texts(chunks, embeddings)
     except Exception as e:
         st.error(f"Error creating knowledge base: {str(e)}")
@@ -77,44 +78,103 @@ def process_query(knowledge_base: FAISS, question: str) -> Optional[str]:
         return None
 
 
+def initialize_session_state():
+    """Initialize session state variables."""
+    if "knowledge_base" not in st.session_state:
+        st.session_state.knowledge_base = None
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    if "pdf_processed" not in st.session_state:
+        st.session_state.pdf_processed = False
+
+
+def display_chat_history():
+    """Display the chat history in a conversational format."""
+    for i, (user_msg, assistant_msg) in enumerate(st.session_state.chat_history):
+        # User message
+        with st.chat_message("user"):
+            st.write(user_msg)
+        
+        # Assistant message
+        with st.chat_message("assistant"):
+            st.write(assistant_msg)
+
+
 def main():
     # Load environment variables
     load_dotenv()
 
     # Check for API key
-    if not os.getenv("OPENAI_API_KEY"):
+    if not os.getenv("GOOGLE_API_KEY"):
         st.error(
-            "OpenAI API key not found. Please set OPENAI_API_KEY in your environment."
+            "Google API key not found. Please set GOOGLE_API_KEY in your environment."
         )
         return
 
     # Configure page
-    st.set_page_config(page_title=AppConfig.page_title)
+    st.set_page_config(
+        page_title=AppConfig.page_title,
+        layout="wide"
+    )
+    
+    # Initialize session state
+    initialize_session_state()
+
+    # Header
     st.header(AppConfig.page_title)
+    st.markdown("Upload a PDF document and start asking questions about its content.")
 
-    # Initialize session state for knowledge base
-    if "knowledge_base" not in st.session_state:
-        st.session_state.knowledge_base = None
+    # Sidebar for PDF upload
+    with st.sidebar:
+        st.header("PDF Upload")
+        pdf_file = st.file_uploader("Upload your PDF", type="pdf")
+        
+        if pdf_file:
+            with st.spinner("Processing PDF..."):
+                # Extract and process text
+                text = extract_text_from_pdf(pdf_file)
+                if text:
+                    chunks = create_text_chunks(text)
+                    st.session_state.knowledge_base = create_knowledge_base(chunks)
+                    st.session_state.pdf_processed = True
+                    st.success("PDF processed successfully!")
+                    
+                    # Clear chat history when new PDF is uploaded
+                    st.session_state.chat_history = []
+        
+        # Clear chat button
+        if st.button("Clear Chat History"):
+            st.session_state.chat_history = []
+            st.rerun()
 
-    # File upload
-    pdf_file = st.file_uploader("Upload your PDF", type="pdf")
-
-    if pdf_file:
-        with st.spinner("Processing PDF..."):
-            # Extract and process text
-            text = extract_text_from_pdf(pdf_file)
-            if text:
-                chunks = create_text_chunks(text)
-                st.session_state.knowledge_base = create_knowledge_base(chunks)
-                st.success("PDF processed successfully!")
-
-    # Query interface
-    if st.session_state.knowledge_base:
-        question = st.text_input("Ask your question:")
-        if question:
-            response = process_query(st.session_state.knowledge_base, question)
-            if response:
-                st.write(response)
+    # Main chat interface
+    if not st.session_state.pdf_processed:
+        st.info("Please upload a PDF file to start chatting.")
+    else:
+        # Display chat history
+        display_chat_history()
+        
+        # Chat input
+        if prompt := st.chat_input("Ask a question about your PDF..."):
+            # Add user message to chat history
+            st.session_state.chat_history.append((prompt, ""))
+            
+            # Display user message
+            with st.chat_message("user"):
+                st.write(prompt)
+            
+            # Get response
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    response = process_query(st.session_state.knowledge_base, prompt)
+                    if response:
+                        st.write(response)
+                        # Update the last assistant message in chat history
+                        st.session_state.chat_history[-1] = (prompt, response)
+                    else:
+                        st.error("Sorry, I couldn't find an answer to your question.")
+                        # Remove the failed conversation from history
+                        st.session_state.chat_history.pop()
 
 
 if __name__ == "__main__":

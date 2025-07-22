@@ -2,8 +2,7 @@ langchain
 pypdf2
 python-dotenv
 streamlit
-langchain-openai    
+langchain-google-genai
 langchain-community
 faiss-cpu
-python-dotenv
-openai
+google-generativeai
